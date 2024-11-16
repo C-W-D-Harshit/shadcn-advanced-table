@@ -17,9 +17,40 @@ A powerful and customizable table component for React applications, built with S
 
 Clone the repository:
 
+```bash
+git clone https://github.com/C-W-D-Harshit/shadcn-advanced-table.git
 ```
-git clone <repository-url>
+
+Install the dependencies:
+
+```bash
+npm install
 ```
+
+The `AdvancedTable` component is located at `src/components/ui/advanced-table.tsx`.
+
+## Usage
+
+Import the `AdvancedTable` component in your React application:
+
+```jsx
+import AdvancedTable from "@/components/ui/advanced-table";
+```
+
+Use the component in your JSX:
+
+```jsx
+<AdvancedTable
+  columns={columns}
+  data={data}
+  // Use `dynamic={true}` only if you are getting data from an API.
+  // The same applies for `onFetchData`.
+  dynamic={true}
+  onFetchData={fetchData}
+/>
+```
+
+The `AdvancedTable` component is located in `src/components/ui/advanced-table.tsx`.
 
 ## Prerequisites
 
