@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { ThemeToggleComponent } from "@/components/theme-toggle";
+import { Suspense } from "react";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -31,10 +32,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <ThemeToggleComponent />
-        </ThemeProvider>
+        <Suspense>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+            <ThemeToggleComponent />
+          </ThemeProvider>
+        </Suspense>
       </body>
     </html>
   );
