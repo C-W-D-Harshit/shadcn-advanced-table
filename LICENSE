@@ -1,4 +1,4 @@
-# MIT License
+MIT License
 
 Copyright (c) 2024 Harshit Sharma
 
@@ -11,10 +11,6 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-
-The software makes use of Shadcn components, and their respective licenses
-apply to those parts of the code. For more information on Shadcn's licensing,
-please refer to their repository.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
