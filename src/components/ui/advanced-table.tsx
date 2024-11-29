@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "./skeleton";
 
 type SortDirection = "asc" | "desc";
 
@@ -35,34 +37,32 @@ interface ReactNodeAttachment {
   type: string;
 }
 
+interface CellData<T> {
+  value: any;
+  rowSpan?: number;
+  colSpan?: number;
+  cellRenderer?: (value: any, row: T) => React.ReactNode;
+}
+
 interface Column<T> {
   key: keyof T;
   header: string;
   sortable?: boolean;
   sticky?: boolean;
   width?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cellRenderer?: (value: any, row: T) => React.ReactNode;
 }
 
 interface TableProps<T> {
   columns: Column<T>[];
   data: T[];
-  dynamic?: boolean;
-  onFetchData?: (params: {
-    page: number;
-    itemsPerPage: number;
-    sortColumn?: string;
-    sortDirection?: SortDirection;
-  }) => Promise<{ data: T[]; totalItems: number }>;
+  isLoading?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Table = <T extends Record<string, any>>({
   columns,
   data: initialData,
-  dynamic = false,
-  onFetchData,
+  isLoading = false,
 }: TableProps<T>) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,8 +76,6 @@ const Table = <T extends Record<string, any>>({
   );
   const [selectedRows, setSelectedRows] = useState<T[]>([]);
   const [totalItems, setTotalItems] = useState(initialData.length);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [loading, setLoading] = useState(false);
 
   const stickyOffsets = columns.reduce((acc, column, index) => {
     if (!column.sticky) return acc;
@@ -85,33 +83,6 @@ const Table = <T extends Record<string, any>>({
     acc[column.key] = prevOffset + (column.width || 150);
     return acc;
   }, {} as Record<keyof T, number>);
-
-  const fetchData = useCallback(async () => {
-    if (!dynamic || !onFetchData) return;
-
-    setLoading(true);
-    try {
-      const result = await onFetchData({
-        page: currentPage,
-        itemsPerPage,
-        sortColumn: sortColumn as string,
-        sortDirection: sortDirection || undefined,
-      });
-      setData(result.data);
-      setTotalItems(result.totalItems);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    dynamic,
-    onFetchData,
-    currentPage,
-    itemsPerPage,
-    sortColumn,
-    sortDirection,
-  ]);
 
   useEffect(() => {
     const page = Number(searchParams.get("page")) || 1;
@@ -126,8 +97,9 @@ const Table = <T extends Record<string, any>>({
   }, [searchParams]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    setData(initialData);
+    setTotalItems(initialData.length);
+  }, [initialData]);
 
   const updateSearchParams = useCallback(
     (params: Record<string, string | null>) => {
@@ -201,7 +173,7 @@ const Table = <T extends Record<string, any>>({
   }, [data]);
 
   const sortedData = React.useMemo(() => {
-    if (dynamic || !sortColumn || !sortDirection) return data;
+    if (!sortColumn || !sortDirection) return data;
 
     return [...data].sort((a, b) => {
       if (a[sortColumn] < b[sortColumn])
@@ -210,18 +182,18 @@ const Table = <T extends Record<string, any>>({
         return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [data, sortColumn, sortDirection, dynamic]);
+  }, [data, sortColumn, sortDirection]);
 
-  const paginatedData = dynamic
-    ? sortedData
-    : sortedData.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-      );
+  const paginatedData = sortedData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
+  console.log(data, sortedData, paginatedData);
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-[calc(100vh-14rem)] flex-col">
       <div className="relative flex-1 overflow-auto rounded-md border border-border">
         <table className="w-full border-collapse">
           <TableHeader
@@ -235,33 +207,36 @@ const Table = <T extends Record<string, any>>({
             allSelected={selectedRows.length === data.length}
           />
           <tbody>
-            {paginatedData.map((row, index) => (
-              <TableRow
-                key={index}
-                columns={columns}
-                row={row}
-                index={index}
-                stickyOffsets={stickyOffsets}
-                isSelected={selectedRows.includes(row)}
-                onSelect={() => toggleRowSelection(row)}
-              />
-            ))}
+            {isLoading
+              ? Array.from({ length: 20 }).map((_, index) => (
+                  <TableRowSkeleton key={index} columns={columns} />
+                ))
+              : sortedData.map((row, index) => (
+                  <TableRow
+                    key={index}
+                    columns={columns}
+                    row={row}
+                    index={index}
+                    stickyOffsets={stickyOffsets}
+                    isSelected={selectedRows.includes(row)}
+                    onSelect={() => toggleRowSelection(row)}
+                  />
+                ))}
           </tbody>
         </table>
       </div>
-      <TablePagination
+      {/* <TablePagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={handlePageChange}
         itemsPerPage={itemsPerPage}
         onItemsPerPageChange={handleItemsPerPageChange}
         totalItems={totalItems}
-      />
+      /> */}
     </div>
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TableHeader = <T extends Record<string, any>>({
   columns,
   onSort,
@@ -281,7 +256,7 @@ const TableHeader = <T extends Record<string, any>>({
   onSelectAll: () => void;
   allSelected: boolean;
 }) => (
-  <thead className="sticky top-0 z-10 bg-background">
+  <thead className="sticky top-0 z-10 bg-background drop-shadow-md">
     <tr className="border-b border-border">
       <th className="sticky left-0 w-10 bg-background px-2">
         <Checkbox
@@ -356,7 +331,6 @@ const TableHeader = <T extends Record<string, any>>({
   </thead>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TableRow = <T extends Record<string, any>>({
   columns,
   row,
@@ -387,6 +361,15 @@ const TableRow = <T extends Record<string, any>>({
       />
     </td>
     {columns.map((column, columnIndex) => {
+      const cellData: CellData<T> =
+        typeof row[column.key] === "object" && row[column.key] !== null
+          ? (row[column.key] as CellData<T>)
+          : { value: row[column.key] };
+
+      if (cellData.colSpan === 0 || cellData.rowSpan === 0) {
+        return null;
+      }
+
       const isSticky = column.sticky;
       const leftOffset = isSticky
         ? stickyOffsets[column.key] - (column.width || 150) + 30
@@ -405,13 +388,35 @@ const TableRow = <T extends Record<string, any>>({
           }}
           isEven={index % 2 === 0}
           isLastSticky={isLastSticky}
+          colSpan={cellData.colSpan}
+          rowSpan={cellData.rowSpan}
         >
-          {column.cellRenderer
-            ? column.cellRenderer(row[column.key], row)
-            : row[column.key]}
+          {cellData.cellRenderer
+            ? cellData.cellRenderer(cellData.value, row)
+            : column.cellRenderer
+            ? column.cellRenderer(cellData.value, row)
+            : cellData.value}
         </TableCell>
       );
     })}
+  </tr>
+);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TableRowSkeleton = <T extends Record<string, unknown>>({
+  columns,
+}: {
+  columns: Column<T>[];
+}) => (
+  <tr className="bg-background">
+    <td className="w-10 px-2 py-4">
+      <Skeleton className="h-4 w-4" />
+    </td>
+    {columns.map((column) => (
+      <td key={column.key as string} className="px-4 py-4">
+        <Skeleton className="h-8 w-full" />
+      </td>
+    ))}
   </tr>
 );
 
@@ -421,12 +426,16 @@ const TableCell = ({
   style,
   isEven,
   isLastSticky,
+  colSpan,
+  rowSpan,
 }: {
   children: React.ReactNode;
   sticky?: boolean;
   style?: React.CSSProperties;
   isEven: boolean;
   isLastSticky?: boolean;
+  colSpan?: number;
+  rowSpan?: number;
 }) => (
   <td
     className={cn(
@@ -438,6 +447,8 @@ const TableCell = ({
       isEven ? "bg-muted" : "bg-background"
     )}
     style={style}
+    colSpan={colSpan}
+    rowSpan={rowSpan}
   >
     {children}
   </td>
@@ -508,40 +519,7 @@ const TablePagination = ({
   );
 };
 
-/**
- * This component needs the use client.
- * @deprecated This component is deprecated and should not be used in new code.
- *
- * A React component that renders an attachment cell with an icon, name, and size.
- *
- * @param {Object} props - The props object.
- * @param {ReactNodeAttachment} props.attachment - The attachment object containing type, name, and size.
- *
- * @returns {JSX.Element} The rendered attachment cell component.
- */
-const AttachmentCell = ({
-  attachment,
-}: {
-  attachment: ReactNodeAttachment;
-}) => {
-  const getIcon = (type: string) => {
-    if (type.startsWith("image/")) return <ImageIcon className="h-5 w-5" />;
-    if (type === "application/pdf") return <FileTextIcon className="h-5 w-5" />;
-    return <FileIcon className="h-5 w-5" />;
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      {getIcon(attachment.type)}
-      <span>{attachment.name}</span>
-      <span className="text-xs text-muted-foreground">
-        ({(attachment.size / 1024).toFixed(2)} KB)
-      </span>
-    </div>
-  );
-};
-
-// Example usage with dynamic data fetching and custom cell renderers
+// Example usage with rowspan and colspan
 export default function DynamicTableExample() {
   const columns: Column<(typeof mockData)[0]>[] = [
     { key: "id", header: "ID", sortable: true, sticky: true, width: 80 },
@@ -551,7 +529,6 @@ export default function DynamicTableExample() {
       key: "role",
       header: "Role",
       width: 150,
-
       cellRenderer: (value) => (
         <Select value={value}>
           <SelectTrigger className="w-[180px] z-0">
@@ -592,143 +569,56 @@ export default function DynamicTableExample() {
       key: "attachment",
       header: "Attachment",
       width: 300,
-      cellRenderer: (value: ReactNodeAttachment) => (
-        <AttachmentCell attachment={value} />
-      ),
     },
-    // need 20 more columns
-    { key: "phone", header: "Phone", width: 150 },
-    { key: "address", header: "Address", width: 300 },
-    { key: "city", header: "City", width: 150 },
-    { key: "state", header: "State", width: 100 },
-    { key: "zip", header: "Zip Code", width: 100 },
-    { key: "country", header: "Country", width: 150 },
-    { key: "company", header: "Company", width: 200 },
-    { key: "position", header: "Position", width: 200 },
-    {
-      key: "hireDate",
-      header: "Hire Date",
-      width: 200,
-      cellRenderer: (value) => new Date(value).toLocaleDateString(),
-    },
-    {
-      key: "salary",
-      header: "Salary",
-      width: 150,
-      cellRenderer: (value) => `$${value?.toLocaleString()}`,
-    },
-    { key: "manager", header: "Manager", width: 200 },
-    { key: "team", header: "Team", width: 200 },
-    { key: "project", header: "Project", width: 200 },
-    {
-      key: "skills",
-      header: "Skills",
-      width: 300,
-      cellRenderer: (value) => value.join(", "),
-    },
-    {
-      key: "experience",
-      header: "Experience",
-      width: 150,
-      cellRenderer: (value) => `${value} years`,
-    },
-    { key: "education", header: "Education", width: 200 },
-    {
-      key: "certifications",
-      header: "Certifications",
-      width: 300,
-      cellRenderer: (value) => value.join(", "),
-    },
-    {
-      key: "languages",
-      header: "Languages",
-      width: 200,
-      cellRenderer: (value) => value.join(", "),
-    },
-    { key: "availability", header: "Availability", width: 150 },
-    { key: "notes", header: "Notes", width: 300 },
   ];
 
-  const mockData = Array.from({ length: 1000 }, (_, i) => ({
-    id: i + 1,
-    name: `User ${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    role: i % 3 === 0 ? "Admin" : i % 3 === 1 ? "User" : "Manager",
-    department: ["IT", "HR", "Finance", "Marketing", "Sales"][i % 5],
-    status: i % 5 === 0 ? "Inactive" : "Active",
-    lastLogin: new Date(
-      Date.now() - Math.floor(Math.random() * 10000000000)
-    ).toISOString(),
-    attachment: {
-      id: `file-${i}`,
-      name: `document-${i}.pdf`,
-      size: Math.floor(Math.random() * 1000000),
-      type: "application/pdf",
+  const mockData = [
+    {
+      id: 1,
+      name: "John Doe",
+      email: "john@example.com",
+      role: "Admin",
+      department: { value: "IT", rowSpan: 2 },
+      status: "Active",
+      lastLogin: "sdf",
+      attachment: {
+        id: "file-1",
+        name: "document.pdf",
+        size: 1024 * 1024,
+        type: "application/pdf",
+      },
     },
-    phone: `123-456-789${i % 10}`,
-    address: `123 Main St Apt ${i + 1}`,
-    city: `City ${i % 10}`,
-    state: `State ${i % 5}`,
-    zip: `1234${i % 10}`,
-    country: `Country ${i % 5}`,
-    company: `Company ${i % 10}`,
-    position: `Position ${i % 10}`,
-    hireDate: new Date(
-      Date.now() - Math.floor(Math.random() * 10000000000)
-    ).toISOString(),
-    salary: Math.floor(Math.random() * 100000),
-    manager: `Manager ${i % 10}`,
-    team: `Team ${i % 10}`,
-    project: `Project ${i % 10}`,
-    skills: ["Skill1", "Skill2", "Skill3"],
-    experience: Math.floor(Math.random() * 20),
-    education: `Education ${i % 10}`,
-    certifications: ["Cert1", "Cert2"],
-    languages: ["English", "Spanish"],
-    availability: `Availability ${i % 10}`,
-    notes: `Notes ${i % 10}`,
-  }));
-
-  const fetchData = async (params: {
-    page: number;
-    itemsPerPage: number;
-    sortColumn?: string;
-    sortDirection?: SortDirection;
-  }) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const filteredData = [...mockData];
-
-    if (params.sortColumn && params.sortDirection) {
-      filteredData.sort((a, b) => {
-        if (
-          a[params.sortColumn as keyof (typeof mockData)[0]] <
-          b[params.sortColumn as keyof (typeof mockData)[0]]
-        )
-          return params.sortDirection === "asc" ? -1 : 1;
-        if (
-          a[params.sortColumn as keyof (typeof mockData)[0]] >
-          b[params.sortColumn as keyof (typeof mockData)[0]]
-        )
-          return params.sortDirection === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    const start = (params.page - 1) * params.itemsPerPage;
-    const end = start + params.itemsPerPage;
-    const paginatedData = filteredData.slice(start, end);
-
-    return {
-      data: paginatedData,
-      totalItems: mockData.length,
-    };
-  };
+    {
+      id: 2,
+      name: "Jane Smith",
+      email: "jane@example.com",
+      role: "User",
+      department: { value: "IT", colSpan: 0 },
+      status: "Active",
+      lastLogin: new Date().toISOString(),
+      attachment: {
+        id: "file-2",
+        name: "image.jpg",
+        size: 2 * 1024 * 1024,
+        type: "image/jpeg",
+      },
+    },
+    {
+      id: 3,
+      name: { value: "Team Overview", colSpan: 4 },
+      email: { colSpan: 0 },
+      role: { colSpan: 0 },
+      department: { colSpan: 0 },
+      status: "N/A",
+      lastLogin: "N/A",
+      attachment: { value: "No attachments", colSpan: 2 },
+    },
+    // Add more mock data as needed
+  ];
 
   return (
     <div className="flex h-full flex-col space-y-4">
-      <Table columns={columns} data={[]} dynamic onFetchData={fetchData} />
+      <Table columns={columns} data={mockData} />
     </div>
   );
 }
@@ -743,4 +633,5 @@ export {
   type TableProps,
   type SortDirection,
   type ReactNodeAttachment,
+  type CellData,
 };
